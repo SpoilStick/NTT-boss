@@ -1,0 +1,180 @@
+#macro current_frame_active (current_frame < floor(current_frame) + current_time_scale)
+
+#define init
+global.newLevel = instance_exists(GenCont);
+
+global.sprMutantPortalStart =     sprite_add("Sprites/sprMutantPortalStart.png",     1, 4, 4);
+global.sprMutantPortalCharge =    sprite_add("Sprites/sprMutantPortalCharge.png",    4, 4, 4);
+global.sprMutantPortalClose =     sprite_add("Sprites/sprMutantPortalClose.png",     14, 16, 16);
+global.sprMutantPortal =          sprite_add("Sprites/sprMutantPortal.png",          5, 16, 16);
+global.sprMutantPortalDisappear = sprite_add("Sprites/sprMutantPortalDisappear.png", 6, 16, 16);
+
+global.sprChaosPortalStart =     sprite_add("Sprites/sprChaosPortalStart.png",     1, 4, 4);
+global.sprChaosPortalCharge =    sprite_add("Sprites/sprChaosPortalCharge.png",    4, 4, 4);
+global.sprChaosPortalClose =     sprite_add("Sprites/sprChaosPortalClose.png",     14, 16, 16);
+global.sprChaosPortal =          sprite_add("Sprites/sprChaosPortal.png",          5, 16, 16);
+global.sprChaosPortalDisappear = sprite_add("Sprites/sprChaosPortalDisappear.png", 6, 16, 16);
+
+game_start();
+
+#define game_start
+global.hadGenCont = false;
+
+#define step
+var hasGenCont = instance_exists(GenCont);
+var hadGenCont = global.hadGenCont;
+global.hadGenCont = hasGenCont;
+
+if (!hasGenCont && hadGenCont && (GameCont.area != 7 && GameCont.subarea != 3) && ((GameCont.area >= 3 && random(3) < 2) || GameCont.loops > 0)) {
+	repeat(1 + GameCont.loops + irandom(1 + GameCont.loops))
+	scr_await();
+}
+
+#define draw_dark
+with(instances_named(CustomObject, "MutantPortal")){
+	var r = 60
+	draw_circle(x, y, r + random(6), 0);
+}
+
+#define draw_dark_end
+with(instances_named(CustomObject, "MutantPortal")){
+	var r = 20
+	draw_circle(x, y, r + random(6), 0);
+}
+
+#define instances_named(_inst, _name)
+return instances_matching(_inst, "name", _name);
+
+#define scrAlarm(_alarm)
+var a = alarm_get(_alarm);
+if(a > 0){
+	a -= max(1, current_time_scale);
+	alarm_set(_alarm, a);
+	if(a <= 0){
+		alarm_set(_alarm, -1);
+		return true;
+	}
+}
+return false;
+
+#define CustomPortal_create(_x, _y, _typ, _portaltyp)
+ // Portal:
+with(instance_create(_x, _y, CustomObject)){
+	name = "Custom Portal";
+
+	 // Vars:
+	friction = 0.1;
+    clear = true;
+	
+	 // Visual:
+	spr_strt = (_portaltyp = "mutant" ? global.sprMutantPortalStart     : global.sprChaosPortalStart);
+	spr_chrg = (_portaltyp = "mutant" ? global.sprMutantPortalCharge    : global.sprChaosPortalCharge);
+	spr_open = (_portaltyp = "mutant" ? global.sprMutantPortalClose     : global.sprChaosPortalClose);
+	spr_loop = (_portaltyp = "mutant" ? global.sprMutantPortal          : global.sprChaosPortal);
+	spr_clos = (_portaltyp = "mutant" ? global.sprMutantPortalDisappear : global.sprChaosPortalDisappear);
+	spr_effx = (_portaltyp = "mutant" ? global.sprMutantPortalCharge    : global.sprChaosPortalCharge);
+	image_speed = 0.4;
+	depth = -1;
+	
+	typ = _typ
+	portaltyp = _portaltyp
+
+	 // Sound:
+	snd_warn = sndIDPDPortalSpawn;
+	if(GameCont.area == 101) snd_warn = sndOasisPopo;
+
+	 // Spawn Delay:
+	alarm0 = 100
+
+	 // Do Things:
+	sound_play(snd_warn);
+	sprite_index = spr_strt;
+
+	on_step = CustomPortal_step;
+
+	return id;
+}
+
+#define CustomPortal_step
+ // Particles:
+if(sprite_index == spr_chrg && sprite_exists(spr_effx) && current_frame_active){
+	with(instance_create(x + random_range(-64, 64), y + random_range(-64, 64), IDPDPortalCharge)){
+		motion_add(point_direction(x, y, other.x, other.y), 1 + random(2));
+		alarm0 = (point_distance(x, y, other.x, other.y) / speed) + 1;
+		sprite_index = other.spr_effx;
+	}
+}
+
+ // Spawning:
+if(scrAlarm(0)){
+	 // Open:
+	if(sprite_index == spr_chrg){
+		alarm0 = 12;
+		image_index = 0;
+		sprite_index = spr_open;
+	}
+
+	 // Spawn In:
+	else{
+		if portaltyp = "mutant" scr_spawn_mutant(typ) 
+		if portaltyp = "chaos"  scr_spawn_chaos(typ);
+		
+		
+		if(clear){
+			clear = 0;
+			instance_create(x, y, PortalClear);
+			view_shake_at(x, y, 8);
+		}
+	}
+}
+
+ // On Animating:
+if(sprite_index != spr_loop){
+	if(image_index + image_speed > image_number - 1){
+		if(sprite_index == spr_clos || sprite_index == spr_open){
+			instance_destroy(); // Close
+		}
+		else sprite_index = spr_chrg; // Charging
+	}
+}
+	
+#define scr_spawn_mutant(_spawnmutant)
+switch(_spawnmutant) {
+	case 1: 
+		mod_script_call("mod", "Fish", "enemyfish_create", x, y) 
+		sound_play(sndMutant1Cptn)
+	break;
+}
+
+#define scr_spawn_chaos(_spawnchaos)
+switch(_spawnchaos) {
+	case 0: break;
+}
+
+#define scr_await()
+with instance_create(0,0,CustomObject){
+	enemies = instance_number(enemy)
+	name = "wantcustomportal"
+	on_step = script_ref_create(scr_await_step)
+	return id;
+}
+
+#define scr_await_step
+if (instance_number(enemy) < (enemies/5)*4) && instance_exists(Player){
+	var wall_ = instance_nearest(Player.x+random(100),Player.y+random(100),Wall)
+	var wx = wall_.x;
+	var wy = wall_.y;
+	if fork(){
+		wait(60)
+		if instance_exists(self){
+			with instance_create(wx, wy, IDPDSpawn) {
+				GameCont.popolevel--;
+				CustomPortal_create(x, y, irandom_range(1, 1), (random(1) < 1 ? "mutant" : "chaos"));
+				instance_destroy();
+			}
+			instance_destroy();
+//			if GameCont.loops > 0 mod_script_call("mod", VanBase", scr_await_van);
+		}
+		exit;
+	}
+}

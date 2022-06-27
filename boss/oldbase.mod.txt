@@ -1,0 +1,152 @@
+game_start();
+
+#define game_start
+global.hadGenCont = false;
+
+#define step
+var hasGenCont = instance_exists(GenCont);
+var hadGenCont = global.hadGenCont;
+global.hadGenCont = hasGenCont;
+
+if (random(1) < 1 && !hasGenCont && hadGenCont && (GameCont.area >= 3 || GameCont.loops >= 1)) {
+	repeat(1+irandom_range(0,1+GameCont.loops))
+	scr_await();
+}
+
+#define scr_await
+if (!fork()) exit;
+var ref = instance_create(10016, 10016, becomenemy);
+var enemies = instance_number(enemy);
+while (instance_number(enemy) > enemies * 0.75) wait 1;
+if (!instance_exists(ref)) exit;
+wait irandom_range(5, 50);
+while (instance_exists(ref)) {
+	// find target:
+	var targets = instance_number(Player);
+	if (targets == 0) { with (ref) instance_destroy(); exit; }
+	targets = irandom(targets - 1);
+	var target = noone;
+	with (Player) if (--targets < 0) { target = id; break; }
+	if (target == noone) { with (ref) instance_destroy(); exit; }
+	//
+	var target_x = target.x, target_y = target.y;
+	var can_spawn = false, spawn_x, spawn_y;
+	with (Floor) {
+		var _x = x + 8, _y = y + 8;
+		// must be within range:
+		var dist = point_distance(_x, _y, target_x, target_y);
+		if (dist > 150 && dist < 250) continue;
+		// must have line of sight towards player:
+		if (collision_line(_x, _y, target_x, target_y, Floor, true, true) != noone) continue;
+		// OK!
+		portal_create(_x, _y);
+		instance_create(x+16, y+16, PortalClear)
+		with (ref) instance_destroy();
+		exit;
+	}
+}
+
+#define portal_create(_x, _y)
+with instance_create(_x, _y, CustomObject) {
+	name = "Mutant Portal"
+	image_blend = c_yellow;
+	on_step = script_ref_create(PortalStep);
+	on_draw = script_ref_create(PortalDraw);
+}
+
+#define PortalStep
+if "_t" not in self
+_t = 0
+
+if _t < 100 {
+	_t += 1
+}
+else {
+	instance_delete(self)
+}
+
+if instance_exists(self) {
+	if _t <= 5 {
+		sprite_index = sprIDPDPortalStart;
+	}
+	if _t < 70 && _t > 5 {
+		sprite_index = sprIDPDPortalClose;
+		image_speed = 0
+	}	
+	if _t >= 70 {
+		sprite_index = sprIDPDPortalClose
+		image_speed = 0.25
+		if "creation" not in self {
+			mutant_create(x,y);
+			creation = 1
+		}
+	}
+	
+	if (random(2) < 1) {
+		var _x = x
+		var _y = y
+		
+		var portal_x = random(80)-40 + _x
+		var portal_y = random(80)-40 + _y
+		
+		Charge_create(_x, _y, portal_x, portal_y)
+	}
+}
+
+#define Charge_create(targ_x, targ_y, spawn_x, spawn_y)
+with instance_create(spawn_x, spawn_y, CustomObject) {
+	name = "Mutant Portal Charge"
+
+	sprite_index = sprIDPDPortalCharge;
+	image_blend = c_yellow;
+	image_xscale = 1.1;
+	image_yscale = image_xscale;
+	
+	_x = targ_x
+	_y = targ_y
+	
+	on_step = ChargeStep;
+}
+
+#define ChargeStep
+var _ang = point_direction(x, y, _x, _y);
+var _dist = point_distance(x, y, _x, _y);
+var _speed = _dist/75;
+var _time = _dist/_speed;
+_time /= 4
+
+motion_add(_ang, _speed)
+
+wait(_time)
+instance_delete(self)
+
+#define PortalDraw
+if "scale" not in self {
+	image_xscale -= 0.85
+	image_yscale = image_xscale
+	
+	scale = 1
+}
+
+if (random(2)<1) {
+	if (image_xscale <= 0.5) {
+		image_xscale += choose(-0.01,0.11);
+		image_yscale = image_xscale;
+	}
+	else {
+		image_xscale -= 0.01;
+		image_yscale = image_xscale;
+	}
+}
+
+#define mutant_create(_x, _y)
+instance_create(x,y,PortalClear)
+
+//var _c = irandom_range(1,14)
+var _c = irandom_range(1,1)
+
+switch(_c) {
+	case 1:
+		mod_script_call("mod", "Fish", "enemyfish_create", _x, _y);
+		break;
+}

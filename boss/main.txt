@@ -1,0 +1,4 @@
+/loadmod Base
+/loadmod Mutants/Fish
+
+/loadwep Mutants/Weapons/Bayonet

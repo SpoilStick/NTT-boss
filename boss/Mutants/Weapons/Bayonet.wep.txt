@@ -1,0 +1,49 @@
+#define init
+global.sprBayonet = sprite_add_weapon("Weapon-Sprites/sprBayonet.png",5,7);
+#define weapon_name
+return "BAYONET";
+#define weapon_type
+return 1;
+#define weapon_auto
+return 0;
+#define weapon_cost
+return 3;
+#define weapon_load
+return 16;
+#define weapon_sprt
+return global.sprBayonet;
+#define weapon_area
+return 5;
+#define weapon_swap
+return sndSwapMachinegun;
+#define weapon_text
+return "a rifle and blade";
+#define weapon_fire
+if instance_exists(self) {
+	sound_play(sndScrewdriver);
+	instance_create(x, y, Dust);
+	with (instance_create(x + lengthdir_x(8 + skill_get(17) * 30, other.gunangle), y + lengthdir_y(8 + skill_get(17) * 30, other.gunangle), Shank)) {
+		motion_add(other.gunangle + (random(16) - 8) * other.accuracy, 3 + 3 * skill_get(17));
+		image_angle = direction;
+		team = other.team;
+		creator = other;
+	}
+	motion_add(other.gunangle, 4);
+
+	repeat (3) {
+		wait(3);
+		with (instance_create(x + lengthdir_x(8, other.gunangle), y + lengthdir_y(8, other.gunangle), Bullet1)) {
+			motion_add(other.gunangle + (random(8) - 4) * other.accuracy, 16);
+			image_angle = direction;
+			team = other.team;
+			creator = other.id;
+		}
+	}
+	wkick -= 10;
+}
+
+weapon_post(-8, 12, 1);
+
+
+
+weapon_post(2, -3, 2);
